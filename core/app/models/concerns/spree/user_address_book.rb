@@ -5,7 +5,7 @@ module Spree
     extend ActiveSupport::Concern
 
     included do
-      has_many :user_addresses, -> { active }, { foreign_key: "user_id", class_name: "Spree::UserAddress" } do
+      has_many :user_addresses, -> { active }, foreign_key: "user_id", class_name: "Spree::UserAddress" do
         def find_first_by_address_values(address_attrs)
           detect { |ua| ua.address == Spree::Address.new(address_attrs) }
         end
@@ -37,34 +37,6 @@ module Spree
 
       has_one :default_user_ship_address, ->{ default_shipping }, class_name: 'Spree::UserAddress', foreign_key: 'user_id'
       has_one :ship_address, through: :default_user_ship_address, source: :address
-    end
-
-    def default_address
-      Spree::Deprecation.warn "#default_address is deprecated. Please start using #ship_address."
-      ship_address
-    end
-
-    def default_user_address
-      Spree::Deprecation.warn "#default_user_address is deprecated. Please start using #default_user_ship_address."
-      default_user_ship_address
-    end
-
-    def default_address=(address)
-      Spree::Deprecation.warn(
-        "#default_address= does not take Spree::Config.automatic_default_address into account and is deprecated. " \
-        "Please use #ship_address=."
-      )
-
-      self.ship_address = address if address
-    end
-
-    def default_address_attributes=(attributes)
-      # see "Nested Attributes Examples" section of http://apidock.com/rails/ActionView/Helpers/FormHelper/fields_for
-      # this #{fieldname}_attributes= method works with fields_for in the views
-      # even without declaring accepts_nested_attributes_for
-      Spree::Deprecation.warn "#default_address_attributes= is deprecated. Please use #ship_address_attributes=."
-
-      self.default_address = Spree::Address.immutable_merge(ship_address, attributes)
     end
 
     # saves address in address book
@@ -155,15 +127,6 @@ module Spree
       end
 
       user_address.address
-    end
-
-    def mark_default_address(address)
-      Spree::Deprecation.warn(
-        "#mark_default_address is deprecated and it sets the ship_address only. " \
-        "Please use #mark_default_ship_address."
-      )
-
-      mark_default_ship_address(address)
     end
 
     def mark_default_ship_address(address)

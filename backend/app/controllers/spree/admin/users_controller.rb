@@ -81,40 +81,6 @@ module Spree
         @orders = @search.result.page(params[:page]).per(Spree::Config[:admin_products_per_page])
       end
 
-      def generate_api_key
-        Spree::Deprecation.warn <<-WARN.strip_heredoc, caller
-          The route or controller action you are using is deprecated.
-
-          Instead of:
-          generate_api_key_admin_user PUT    /admin/users/:id/generate_api_key
-
-          Please use:
-          admin_user_api_key          POST   /admin/users/:user_id/api_key
-        WARN
-
-        if @user.generate_spree_api_key!
-          flash[:success] = t('spree.admin.api.key_generated')
-        end
-        redirect_to edit_admin_user_path(@user)
-      end
-
-      def clear_api_key
-        Spree::Deprecation.warn <<-WARN.strip_heredoc, caller
-          The route or controller action you are using is deprecated.
-
-          Instead of:
-          clear_api_key_admin_user PUT    /admin/users/:id/clear_api_key
-
-          Please use:
-          admin_user_api_key       DELETE /admin/users/:user_id/api_key
-        WARN
-
-        if @user.clear_spree_api_key!
-          flash[:success] = t('spree.admin.api.key_cleared')
-        end
-        redirect_to edit_admin_user_path(@user)
-      end
-
       def model_class
         Spree.user_class
       end
@@ -124,7 +90,7 @@ module Spree
       def collection
         return @collection if @collection
 
-        @search = Spree.user_class.ransack(params[:q])
+        @search = super.ransack(params[:q])
         @collection = @search.result.includes(:spree_roles)
         @collection = @collection.includes(:spree_orders)
         @collection = @collection.page(params[:page]).per(Spree::Config[:admin_products_per_page])
@@ -139,6 +105,10 @@ module Spree
 
         if can? :manage, Spree::Role
           attributes += [{ spree_role_ids: [] }]
+        end
+
+        if can? :manage, Spree::StockLocation
+          attributes += [{ stock_location_ids: [] }]
         end
 
         unless can? :update_password, @user
@@ -161,24 +131,27 @@ module Spree
       end
 
       def load_roles
-        @roles = Spree::Role.all
+        @roles = Spree::Role.accessible_by(current_ability)
         if @user
           @user_roles = @user.spree_roles
         end
       end
 
       def load_stock_locations
-        @stock_locations = Spree::StockLocation.all
+        @stock_locations = Spree::StockLocation.accessible_by(current_ability)
       end
 
       def set_roles
-        if user_params[:spree_role_ids] && can?(:manage, Spree::Role)
-          @user.spree_roles = Spree::Role.where(id: user_params[:spree_role_ids])
+        if user_params[:spree_role_ids]
+          @user.spree_roles = Spree::Role.accessible_by(current_ability).where(id: user_params[:spree_role_ids])
         end
       end
 
       def set_stock_locations
-        @user.stock_locations = Spree::StockLocation.where(id: (params[:user][:stock_location_ids] || []))
+        if user_params[:stock_location_ids]
+          @user.stock_locations =
+            Spree::StockLocation.accessible_by(current_ability).where(id: user_params[:stock_location_ids])
+        end
       end
     end
   end

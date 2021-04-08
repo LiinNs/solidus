@@ -1,7 +1,12 @@
 # frozen_string_literal: true
 
-require 'spree/testing_support/factories/promotion_code_factory'
-require 'spree/testing_support/factories/variant_factory'
+require 'spree/testing_support/factory_bot'
+Spree::TestingSupport::FactoryBot.when_cherry_picked do
+  Spree::TestingSupport::FactoryBot.deprecate_cherry_picking
+
+  require 'spree/testing_support/factories/promotion_code_factory'
+  require 'spree/testing_support/factories/variant_factory'
+end
 
 FactoryBot.define do
   factory :promotion, class: 'Spree::Promotion' do
@@ -13,6 +18,12 @@ FactoryBot.define do
     before(:create) do |promotion, evaluator|
       if evaluator.code
         promotion.codes << build(:promotion_code, promotion: promotion, value: evaluator.code)
+      end
+    end
+
+    trait :with_action do
+      after(:create) do |promotion, _evaluator|
+        promotion.actions << Spree::Promotion::Actions::CreateAdjustment.new
       end
     end
 

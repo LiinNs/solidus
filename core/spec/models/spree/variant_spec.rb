@@ -9,6 +9,21 @@ RSpec.describe Spree::Variant, type: :model do
 
   it_behaves_like 'default_price'
 
+  describe 'delegates' do
+    let(:product) { build(:product) }
+    let(:variant) { build(:variant, product: product) }
+
+    it 'discontinue_on to product' do
+      expect(product).to receive(:discontinue_on)
+      variant.discontinue_on
+    end
+
+    it 'discontinued? to product' do
+      expect(product).to receive(:discontinued?)
+      variant.discontinued?
+    end
+  end
+
   context "validations" do
     it "should validate price is greater than 0" do
       variant.price = -1
@@ -159,11 +174,7 @@ RSpec.describe Spree::Variant, type: :model do
       context "and a variant is really deleted" do
         let!(:old_option_values_variant_ids) { variant.option_values_variants.pluck(:id) }
 
-        before do
-          # #really_destroy! will be replaced here with #destroy when Paranoia
-          # will be removed in Solidus 3.0
-          Spree::Deprecation.silence { variant.really_destroy! }
-        end
+        before { variant.destroy }
 
         it "leaves no stale records behind" do
           expect(old_option_values_variant_ids).to be_present
@@ -348,74 +359,6 @@ RSpec.describe Spree::Variant, type: :model do
       subject { variant.price_same_as_master? }
 
       it { is_expected.to be_falsey }
-    end
-  end
-
-  describe '.price_in' do
-    before do
-      variant.prices << create(:price, variant: variant, currency: "EUR", amount: 33.33)
-    end
-
-    subject do
-      Spree::Deprecation.silence { variant.price_in(currency) }
-    end
-
-    context "when currency is not specified" do
-      let(:currency) { nil }
-
-      it "returns nil" do
-        expect(subject).to be_nil
-      end
-    end
-
-    context "when currency is EUR" do
-      let(:currency) { 'EUR' }
-
-      it "returns the value in the EUR" do
-        expect(subject.display_price.to_s).to eql "€33.33"
-      end
-    end
-
-    context "when currency is USD" do
-      let(:currency) { 'USD' }
-
-      it "returns the value in the USD" do
-        expect(subject.display_price.to_s).to eql "$19.99"
-      end
-    end
-  end
-
-  describe '.amount_in' do
-    before do
-      variant.prices << create(:price, variant: variant, currency: "EUR", amount: 33.33)
-    end
-
-    subject do
-      Spree::Deprecation.silence { variant.amount_in(currency) }
-    end
-
-    context "when currency is not specified" do
-      let(:currency) { nil }
-
-      it "returns the amount in the default currency" do
-        expect(subject).to be_nil
-      end
-    end
-
-    context "when currency is EUR" do
-      let(:currency) { 'EUR' }
-
-      it "returns the value in the EUR" do
-        expect(subject).to eql 33.33
-      end
-    end
-
-    context "when currency is USD" do
-      let(:currency) { 'USD' }
-
-      it "returns the value in the USD" do
-        expect(subject).to eql 19.99
-      end
     end
   end
 

@@ -89,7 +89,7 @@ describe "Checkout", type: :feature, inaccessible: true do
 
       let!(:order) do
         order = Spree::Order.create!(
-          email: "spree@example.com",
+          email: "solidus@example.com",
           store: Spree::Store.first || FactoryBot.create(:store)
         )
 
@@ -336,7 +336,7 @@ describe "Checkout", type: :feature, inaccessible: true do
   end
 
   context "user has payment sources", js: true do
-    before { Spree::PaymentMethod.all.each(&:really_destroy!) }
+    before { Spree::PaymentMethod.all.each(&:destroy) }
     let!(:bogus) { create(:credit_card_payment_method) }
     let(:user) { create(:user) }
 
@@ -373,6 +373,14 @@ describe "Checkout", type: :feature, inaccessible: true do
       click_on "Place Order"
       expect(page).to have_current_path(spree.order_path(Spree::Order.last))
       expect(page).to have_content('Ending in 1111')
+    end
+
+    it "allows user to save a billing address associated to the credit card" do
+      choose "use_existing_card_no"
+      fill_in_credit_card
+
+      click_on "Save and Continue"
+      expect(Spree::CreditCard.last.address).to be_present
     end
   end
 
@@ -520,7 +528,7 @@ describe "Checkout", type: :feature, inaccessible: true do
         end
       end
 
-      allow_any_instance_of(Spree::Order).to receive_messages email: "spree@commerce.com"
+      allow_any_instance_of(Spree::Order).to receive_messages email: "solidus@commerce.com"
 
       add_mug_to_cart
       click_on "Checkout"
@@ -617,7 +625,7 @@ describe "Checkout", type: :feature, inaccessible: true do
         state_name_css = "order_bill_address_attributes_state_name"
 
         select "Canada", from: "order_bill_address_attributes_country_id"
-        fill_in 'Customer E-Mail', with: 'test@example.com'
+        fill_in 'Customer Email', with: 'test@example.com'
         fill_in state_name_css, with: xss_string
         fill_in "Zip", with: "H0H0H0"
 

@@ -26,32 +26,8 @@ RSpec.describe Spree::Shipment, type: :model do
   let(:variant) { mock_model(Spree::Variant) }
   let(:line_item) { mock_model(Spree::LineItem, variant: variant) }
 
-  context '#transfer_to_location' do
-    it 'transfers unit to a new shipment with given location' do
-      order = create(:completed_order_with_totals, line_items_count: 2)
-      shipment = order.shipments.first
-      variant = order.inventory_units.map(&:variant).first
-
-      aggregate_failures("verifying new shipment attributes") do
-        expect do
-          Spree::Deprecation.silence do
-            shipment.transfer_to_location(variant, 1, stock_location)
-          end
-        end.to change { Spree::Shipment.count }.by(1)
-
-        new_shipment = order.shipments.order(:created_at).last
-        expect(new_shipment.number).to_not eq(shipment.number)
-        expect(new_shipment.stock_location).to eq(stock_location)
-        expect(new_shipment.line_items.count).to eq(1)
-        expect(new_shipment.line_items.first.variant).to eq(variant)
-      end
-    end
-  end
-
   # Regression test for https://github.com/spree/spree/issues/4063
   context "number generation" do
-    before { allow(order).to receive :update! }
-
     it "generates a number containing a letter + 11 numbers" do
       shipment.save
       expect(shipment.number[0]).to eq("H")
@@ -141,13 +117,6 @@ RSpec.describe Spree::Shipment, type: :model do
     it 'should equal line items final amount with tax' do
       expect(shipment.item_cost).to eql(11.0)
     end
-  end
-
-  it "#discounted_cost" do
-    shipment = create(:shipment)
-    shipment.cost = 10
-    shipment.promo_total = -1
-    expect(Spree::Deprecation.silence { shipment.discounted_cost }).to eq(9)
   end
 
   describe '#total_before_tax' do
@@ -410,8 +379,6 @@ RSpec.describe Spree::Shipment, type: :model do
 
   context "#cancel" do
     it 'cancels the shipment' do
-      allow(shipment.order).to receive(:update!)
-
       shipment.state = 'pending'
       without_partial_double_verification do
         expect(shipment).to receive(:after_cancel)
@@ -512,9 +479,6 @@ RSpec.describe Spree::Shipment, type: :model do
       let(:order){ create(:order_with_line_items, ship_address: address) }
       let(:shipment_with_inventory_units) { create(:shipment, order: order, state: 'canceled') }
       let(:subject) { shipment_with_inventory_units.ship! }
-      before do
-        allow(order).to receive(:update!)
-      end
 
       it 'unstocks them items' do
         expect(shipment_with_inventory_units.stock_location).to receive(:unstock).with(an_instance_of(Spree::Variant), 1, shipment_with_inventory_units)
@@ -525,7 +489,6 @@ RSpec.describe Spree::Shipment, type: :model do
     ['ready', 'canceled'].each do |state|
       context "from #{state}" do
         before do
-          allow(order).to receive(:update!)
           allow(shipment).to receive_messages(state: state)
         end
 

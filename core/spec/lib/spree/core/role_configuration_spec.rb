@@ -12,20 +12,6 @@ RSpec.describe Spree::RoleConfiguration do
 
   let(:instance) { Spree::RoleConfiguration.new }
 
-  describe ".configure" do
-    around(:each) do |example|
-      Spree::Deprecation.silence { example.run }
-    end
-
-    it "yields with the instance" do
-      expect { |b| described_class.configure(&b) }.to yield_with_args(described_class.instance)
-    end
-
-    it "only yields once" do
-      expect { |b| described_class.configure(&b) }.to yield_control.once
-    end
-  end
-
   describe "#assign_permissions" do
     let(:name) { "thing" }
     subject { instance.assign_permissions name, [DummyPermissionSet] }

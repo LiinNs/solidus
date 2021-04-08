@@ -34,8 +34,7 @@ module Spree
       refund = reimbursement.refunds.build({
         payment: payment,
         amount: amount,
-        reason: Spree::RefundReason.return_processing_reason,
-        perform_after_create: false
+        reason: Spree::RefundReason.return_processing_reason
       })
 
       if simulate
@@ -61,7 +60,7 @@ module Spree
       Spree::Reimbursement::Credit.default_creditable_class.new(
         user: reimbursement.order.user,
         amount: unpaid_amount,
-        category: Spree::StoreCreditCategory.reimbursement_category(reimbursement),
+        category: reimbursement.store_credit_category,
         created_by: created_by,
         memo: "Refund for uncreditable payments on order #{reimbursement.order.number}",
         currency: reimbursement.order.currency

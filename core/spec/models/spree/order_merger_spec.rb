@@ -9,7 +9,7 @@ module Spree
     let!(:store) { create(:store, default: true) }
     let(:order_1) { Spree::Order.create }
     let(:order_2) { Spree::Order.create }
-    let(:user) { stub_model(Spree::LegacyUser, email: "spree@example.com") }
+    let(:user) { stub_model(Spree::LegacyUser, email: "solidus@example.com") }
     let(:subject) { Spree::OrderMerger.new(order_1) }
 
     it "destroys the other order" do
@@ -150,7 +150,8 @@ module Spree
       end
 
       it "should create errors with invalid line items" do
-        allow(order_2.line_items.first).to receive(:variant) { nil }
+        order_2.line_items.first.variant.destroy
+        order_2.line_items.reload # so that it registers as invalid
         subject.merge!(order_2)
         expect(order_1.errors.full_messages).not_to be_empty
       end

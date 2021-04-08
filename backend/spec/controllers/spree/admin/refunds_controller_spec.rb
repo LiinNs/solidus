@@ -34,7 +34,7 @@ describe Spree::Admin::RefundsController do
 
       it "calls #perform!" do
         subject
-        # transaction_id comes from Spree::Gateway::Bogus.credit
+        # transaction_id comes from Spree::PaymentMethod::BogusCreditCard.credit
         expect(Spree::Refund.last.transaction_id).to eq("12345")
       end
     end
@@ -42,7 +42,7 @@ describe Spree::Admin::RefundsController do
     context "a Spree::Core::GatewayError is raised" do
       before do
         expect_any_instance_of(Spree::Refund).
-          to receive(:perform!).
+          to receive(:process!).
           and_raise(Spree::Core::GatewayError.new('An error has occurred'))
       end
 

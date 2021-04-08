@@ -26,8 +26,6 @@ en:
         address2: Street Address (cont'd)
         city: City
         company: Company
-        firstname: First Name
-        lastname: Last Name
         name: Name
         phone: Phone
         zipcode: Zip Code
@@ -76,7 +74,6 @@ en:
         created_at: Date/Time
         name: Name
         number: Return Number
-        pre_tax_total: Pre-Tax Total
         reimbursement_status: Reimbursement status
         total: Total
         total_excluding_vat: Pre-Tax Total
@@ -116,7 +113,7 @@ en:
         considered_risky: Risky
         coupon_code: Coupon Code
         created_at: Order Date
-        email: Customer E-Mail
+        email: Customer Email
         included_tax_total: Tax (incl.)
         ip_address: IP Address
         item_total: Item Total
@@ -130,8 +127,6 @@ en:
       spree/order/bill_address:
         address1: Billing address street
         city: Billing address city
-        firstname: Billing address first name
-        lastname: Billing address last name
         name: Billing address name
         phone: Billing address phone
         state: Billing address state
@@ -139,8 +134,6 @@ en:
       spree/order/ship_address:
         address1: Shipping address street
         city: Shipping address city
-        firstname: Shipping address first name
-        lastname: Shipping address last name
         name: Shipping address name
         phone: Shipping address phone
         state: Shipping address state
@@ -177,6 +170,7 @@ en:
         cost_price: Cost Price
         depth: Depth
         description: Description
+        discontinue_on: Discontinue on
         height: Height
         master_price: Master Price
         meta_description: Meta Description
@@ -281,7 +275,6 @@ en:
         type: Type
       spree/return_authorization:
         amount: Amount
-        pre_tax_total: Pre-Tax Total
         total_excluding_vat: Pre-Tax Total
       spree/return_item:
         acceptance_status: Acceptance Status
@@ -698,7 +691,7 @@ en:
         one: RMA Reason
         other: RMA Reasons
       spree/role:
-        one: Roles
+        one: Role
         other: Roles
       spree/shipment:
         one: Shipment
@@ -793,6 +786,7 @@ en:
       refund: Refund
       remove: Remove
       save: Save
+      send_email: Send Email
       ship: Ship
       split: Split
       update: Update
@@ -852,6 +846,11 @@ en:
           drag_and_drop: or drag and drop them here
           image_process_failed: Server failed to process the image
           upload_images: Upload Images
+      order:
+        events:
+          approve: Approve
+          cancel: Cancel
+          resume: Resume
       payments:
         source_forms:
           storecredit:
@@ -1406,12 +1405,15 @@ en:
         available_on: This sets the availability date for the product. If this value
           is not set, or it is set to a date in the future, then the product is not
           available on the storefront.
+        discontinue_on: This sets the discontinue date for the product. If this value
+          is set to a date, then the product is not available on the storefront from
+          that day on anymore.
         promotionable: 'This determines whether or not promotions can apply to this
           product.<br/>Default: Checked'
         shipping_category: 'This determines what kind of shipping this product requires.<br/>
           Default: Default'
         tax_category: 'This determines what kind of taxation is applied to this product.<br/>
-          Default: None'
+          Default: %{default_tax_category}'
       spree/promotion:
         expires_at: This determines when the promotion expires. <br/> If no value
           is specified, the promotion will never expire.
@@ -1443,6 +1445,8 @@ en:
           (orders which don't yet have an address).<br/> Default: None."
         code: 'An identifier for your store. Developers may need this value if you operate
           multiple storefronts.'
+      spree/tax_category:
+        is_default: 'When checked, this tax category will be selected by default when creating new products or variants.'
       spree/tax_rate:
         validity_period: This determines the validity period within which the tax
           rate is valid and will be applied to eligible items. <br /> If no start

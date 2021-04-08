@@ -31,6 +31,12 @@ module Spree
     scope :for_address, ->(address) { joins(:zone).merge(Spree::Zone.for_address(address)) }
     scope :for_country,
           ->(country) { for_address(Spree::Tax::TaxLocation.new(country: country)) }
+    scope :active, -> do
+      table = arel_table
+      time = Time.current
+      where(table[:starts_at].eq(nil).or(table[:starts_at].lt(time))).
+        where(table[:expires_at].eq(nil).or(table[:expires_at].gt(time)))
+    end
 
     # Finds geographically matching tax rates for a tax zone.
     # We do not know if they are/aren't applicable until we attempt to apply these rates to
@@ -81,23 +87,6 @@ module Spree
     end
     scope :included_in_price, -> { where(included_in_price: true) }
 
-    # Creates necessary tax adjustments for the order.
-    #
-    # @deprecated Please use `Spree::Tax::OrderAdjuster#adjust!` instead
-    def adjust(_order_tax_zone, item)
-      Spree::Deprecation.warn("`Spree::TaxRate#adjust` is deprecated. Please use `Spree::Tax::OrderAdjuster#adjust!` instead.", caller)
-
-      amount = compute_amount(item)
-
-      item.adjustments.create!(
-        source: self,
-        amount: amount,
-        order_id: item.order_id,
-        label: adjustment_label(amount),
-        included: included_in_price
-      )
-    end
-
     # This method is used by Adjustment#update to recalculate the cost.
     def compute_amount(item)
       calculator.compute(item)
@@ -116,16 +105,6 @@ module Spree
         amount: amount_for_adjustment_label
       )
     end
-
-    def tax_category=(category)
-      self.tax_categories = [category]
-    end
-
-    def tax_category
-      tax_categories[0]
-    end
-
-    deprecate :tax_category => :tax_categories, :tax_category= => :tax_categories=, deprecator: Spree::Deprecation
 
     private
 

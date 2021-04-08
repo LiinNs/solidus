@@ -4,7 +4,7 @@ class Spree::Api::ResourceController < Spree::Api::BaseController
   before_action :load_resource, only: [:show, :update, :destroy]
 
   def index
-    collection_scope = model_class.accessible_by(current_ability, :read)
+    collection_scope = model_class.accessible_by(current_ability)
     if params[:ids]
       ids = params[:ids].split(",").flatten
       collection_scope = collection_scope.where(id: ids)
@@ -53,7 +53,13 @@ class Spree::Api::ResourceController < Spree::Api::BaseController
   def destroy
     authorize! :destroy, @object
 
-    if @object.destroy
+    destroy_result = if @object.respond_to?(:discard)
+      @object.discard
+    else
+      @object.destroy
+    end
+
+    if destroy_result
       respond_with(@object, status: 204)
     else
       invalid_resource!(@object)
@@ -65,7 +71,7 @@ class Spree::Api::ResourceController < Spree::Api::BaseController
   protected
 
   def load_resource
-    @object = model_class.accessible_by(current_ability, :read).find(params[:id])
+    @object = model_class.accessible_by(current_ability, :show).find(params[:id])
     instance_variable_set("@#{object_name}", @object)
   end
 

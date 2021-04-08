@@ -5,10 +5,6 @@ module Spree
   # variations, called variants. Product properties include description,
   # permalink, availability, shipping category, etc. that do not change by
   # variant.
-  #
-  # @note this model uses {https://github.com/radar/paranoia paranoia}.
-  #   +#destroy+ will only soft-destroy records and the default scope hides
-  #   soft-destroyed records using +WHERE deleted_at IS NULL+.
   class Product < Spree::Base
     extend FriendlyId
     friendly_id :slug_candidates, use: :history
@@ -89,7 +85,6 @@ module Spree
              :has_default_price?,
              :images,
              :price_for,
-             :price_in,
              :rebuild_vat_prices=,
              to: :find_or_build_master
 
@@ -168,25 +163,23 @@ module Spree
     end
 
     # Determines if product is available. A product is available if it has not
-    # been deleted and the available_on date is in the past.
+    # been deleted, the available_on date is in the past
+    # and the discontinue_on date is nil or in the future.
     #
     # @return [Boolean] true if this product is available
     def available?
-      !(available_on.nil? || available_on.future?) && !deleted?
+      !deleted? && available_on&.past? && !discontinued?
     end
 
-    # Groups variants by the specified option type.
+    # Determines if product is discontinued.
     #
-    # @deprecated This method is not called in the Solidus codebase
-    # @param opt_type [String] the name of the option type to group by
-    # @param pricing_options [Spree::Config.pricing_options_class] the pricing options to search
-    #   for, default: the default pricing options
-    # @return [Hash] option_type as keys, array of variants as values.
-    def categorise_variants_from_option(opt_type, pricing_options = Spree::Config.default_pricing_options)
-      return {} unless option_types.include?(opt_type)
-      variants.with_prices(pricing_options).group_by { |variant| variant.option_values.detect { |option| option.option_type == opt_type } }
+    # A product is discontinued if the discontinue_on date
+    # is not nil and in the past.
+    #
+    # @return [Boolean] true if this product is discontinued
+    def discontinued?
+      !!discontinue_on&.past?
     end
-    deprecate :categorise_variants_from_option, deprecator: Spree::Deprecation
 
     # Poor man's full text search.
     #
@@ -202,17 +195,6 @@ module Spree
       end
       where conditions.inject(:or)
     end
-
-    # @param current_currency [String] currency to filter variants by; defaults to Spree's default
-    # @deprecated This method can only handle prices for currencies
-    # @return [Array<Spree::Variant>] all variants with at least one option value
-    def variants_and_option_values(current_currency = nil)
-      variants.includes(:option_values).active(current_currency).select do |variant|
-        variant.option_values.any?
-      end
-    end
-    deprecate variants_and_option_values: :variants_and_option_values_for,
-              deprecator: Spree::Deprecation
 
     # @param pricing_options [Spree::Variant::PricingOptions] the pricing options to search
     #   for, default: the default pricing options
@@ -285,16 +267,6 @@ module Spree
       end
     end
 
-    # Image that can be used for the product.
-    #
-    # Will first search for images on the product, then those belonging to the
-    # variants. If all else fails, will return a new image object.
-    # @return [Spree::Image] the image to display
-    def display_image
-      Spree::Deprecation.warn('Spree::Product#display_image is DEPRECATED. Choose an image from Spree::Product#gallery instead.')
-      images.first || variant_images.first || Spree::Image.new
-    end
-
     # Finds the variant property rule that matches the provided option value ids.
     #
     # @param option_value_ids [Array<Integer>] list of option value ids
@@ -355,8 +327,14 @@ module Spree
     # If the master is invalid, the Product object will be assigned its errors
     def validate_master
       unless master.valid?
-        master.errors.each do |att, error|
-          errors.add(att, error)
+        if Gem::Requirement.new(">= 6.1").satisfied_by?(Rails.gem_version)
+          master.errors.each do |error|
+            errors.add(error.attribute, error.message)
+          end
+        else
+          master.errors.each do |att, error|
+            errors.add(att, error)
+          end
         end
       end
     end

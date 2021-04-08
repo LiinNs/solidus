@@ -1,12 +1,10 @@
 # frozen_string_literal: true
 
-require 'spree/core/class_constantizer'
-
 module Spree
   module Event
     class Configuration
-      def subscribers
-        @subscribers ||= ::Spree::Core::ClassConstantizer::Set.new
+      def subscriber_registry
+        @subscriber_registry ||= Spree::Event::SubscriberRegistry.new
       end
 
       attr_writer :adapter, :suffix, :autoload_subscribers

@@ -5,7 +5,9 @@ class Spree::Admin::ResourceController < Spree::Admin::BaseController
 
   helper_method :new_object_url, :edit_object_url, :object_url, :collection_url
   before_action :load_resource, except: :update_positions
-  rescue_from ActiveRecord::RecordNotFound, with: :resource_not_found
+  rescue_from ActiveRecord::RecordNotFound do |exception|
+    resource_not_found(flash_class: exception.model.constantize)
+  end
   rescue_from ActiveRecord::RecordInvalid, with: :resource_invalid
 
   respond_to :html
@@ -92,8 +94,6 @@ class Spree::Admin::ResourceController < Spree::Admin::BaseController
     destroy_result =
       if @object.respond_to?(:discard)
         @object.discard
-      elsif @object.respond_to?(:paranoia_destroy)
-        @object.paranoia_destroy
       else
         @object.destroy
       end
@@ -134,9 +134,8 @@ class Spree::Admin::ResourceController < Spree::Admin::BaseController
     end
   end
 
-  def resource_not_found
-    flash[:error] = flash_message_for(model_class.new, :not_found)
-    redirect_to collection_url
+  def resource_not_found(flash_class: model_class, redirect_url: collection_url)
+    super
   end
 
   def model_class
@@ -145,11 +144,6 @@ class Spree::Admin::ResourceController < Spree::Admin::BaseController
 
   def parent_model_name
     self.class.parent_data[:model_name].gsub('spree/', '')
-  end
-
-  def model_name
-    Spree::Deprecation.warn('model_name is deprecated. Please use parent_model_name instead.', caller)
-    parent_model_name
   end
 
   def object_name
@@ -184,21 +178,13 @@ class Spree::Admin::ResourceController < Spree::Admin::BaseController
     end
   end
 
-  def parent_data
-    Spree::Deprecation.warn('parent_data is deprecated without replacement.', caller)
-    self.class.parent_data
-  end
-
   def parent
-    if parent?
-      @parent ||= self.class.parent_data[:model_class]
-                    .includes(self.class.parent_data[:includes])
-                    .find_by(self.class.parent_data[:find_by] => params["#{parent_model_name}_id"])
-      instance_variable_set("@#{parent_model_name}", @parent)
-    else
-      Spree::Deprecation.warn "Calling #parent is deprecated on a ResourceController which has not defined a belongs_to"
-      nil
-    end
+    @parent ||= self.class.parent_data[:model_class]
+                  .includes(self.class.parent_data[:includes])
+                  .find_by!(self.class.parent_data[:find_by] => params["#{parent_model_name}_id"])
+    instance_variable_set("@#{parent_model_name}", @parent)
+  rescue ActiveRecord::RecordNotFound => e
+    resource_not_found(flash_class: e.model.constantize, redirect_url: spree.polymorphic_url([:admin, parent_model_name.pluralize]))
   end
 
   def parent?
@@ -222,7 +208,8 @@ class Spree::Admin::ResourceController < Spree::Admin::BaseController
   end
 
   def collection
-    return parent.send(controller_name) if parent?
+    return parent.send(controller_name) if parent? && parent
+
     if model_class.respond_to?(:accessible_by) && !current_ability.has_block?(params[:action], model_class)
       model_class.accessible_by(current_ability, action)
     else

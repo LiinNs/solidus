@@ -189,10 +189,5 @@ module Spree
       subject { action.discard }
       it_should_behave_like "destroying adjustments from incomplete orders"
     end
-
-    describe "#paranoia_destroy" do
-      subject { Spree::Deprecation.silence { action.paranoia_destroy } }
-      it_should_behave_like "destroying adjustments from incomplete orders"
-    end
   end
 end

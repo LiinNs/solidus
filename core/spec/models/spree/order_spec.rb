@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe Spree::Order, type: :model do
   let(:store) { create(:store) }
-  let(:user) { create(:user, email: "spree@example.com") }
+  let(:user) { create(:user, email: "solidus@example.com") }
   let(:order) { create(:order, user: user, store: store) }
   let(:promotion) do
     FactoryBot.create(
@@ -28,15 +28,20 @@ RSpec.describe Spree::Order, type: :model do
         end.to change(order, :confirmation_delivered).to true
       end
 
+      it 'sends the email' do
+        expect(Spree::Config.order_mailer_class).to receive(:confirm_email).and_call_original
+        order.finalize!
+      end
+
       # These specs show how notifications can be removed, one at a time or
       # all the ones set by MailerSubscriber module
       context 'when removing the default email notification subscription' do
         before do
-          Spree::Event.unsubscribe Spree::MailerSubscriber.order_finalized_handler
+          Spree::MailerSubscriber.deactivate(:order_finalized)
         end
 
         after do
-          Spree::MailerSubscriber.subscribe!
+          Spree::MailerSubscriber.activate
         end
 
         it 'does not send the email' do
@@ -47,11 +52,11 @@ RSpec.describe Spree::Order, type: :model do
 
       context 'when removing all the email notification subscriptions' do
         before do
-          Spree::MailerSubscriber.unsubscribe!
+          Spree::MailerSubscriber.deactivate
         end
 
         after do
-          Spree::MailerSubscriber.subscribe!
+          Spree::MailerSubscriber.activate
         end
 
         it 'does not send the email' do
@@ -207,20 +212,6 @@ RSpec.describe Spree::Order, type: :model do
 
     it 'should create a randomized 22 character token' do
       expect(order.guest_token.size).to eq(22)
-    end
-  end
-
-  context "creates shipments cost" do
-    let(:shipment) { double }
-
-    before { allow(order).to receive_messages shipments: [shipment] }
-
-    it "update and persist totals" do
-      expect(order.updater).to receive :update
-
-      Spree::Deprecation.silence do
-        order.set_shipments_cost
-      end
     end
   end
 
@@ -397,27 +388,6 @@ RSpec.describe Spree::Order, type: :model do
       it 'uses the configured order merger' do
         expect(order1.merge!(order2, user)).to eq([order1, order2, user])
       end
-    end
-  end
-
-  context ".register_update_hook", partial_double_verification: false do
-    let(:order) { create(:order) }
-
-    before do
-      allow(Spree::Deprecation).to receive(:warn)
-      Spree::Order.register_update_hook :foo
-    end
-
-    after { Spree::Order.update_hooks.clear }
-
-    it "calls hooks during #recalculate" do
-      expect(order).to receive :foo
-      order.recalculate
-    end
-
-    it "calls hook during #finalize!" do
-      expect(order).to receive :foo
-      order.finalize!
     end
   end
 
@@ -604,32 +574,6 @@ RSpec.describe Spree::Order, type: :model do
         order = create(:order, state: "delivery")
         expect{ order.restart_checkout_flow }.to change{ order.state }.from("delivery").to("cart")
       end
-    end
-  end
-
-  # Regression tests for https://github.com/spree/spree/issues/4072
-  context "#state_changed" do
-    let(:order) { FactoryBot.create(:order) }
-
-    it "logs state changes" do
-      order.update_column(:payment_state, 'balance_due')
-      order.payment_state = 'paid'
-      expect(order.state_changes).to be_empty
-      Spree::Deprecation.silence do
-        order.state_changed('payment')
-      end
-      state_change = order.state_changes.find_by(name: 'payment')
-      expect(state_change.previous_state).to eq('balance_due')
-      expect(state_change.next_state).to eq('paid')
-    end
-
-    it "does not do anything if state does not change" do
-      order.update_column(:payment_state, 'balance_due')
-      expect(order.state_changes).to be_empty
-      Spree::Deprecation.silence do
-        order.state_changed('payment')
-      end
-      expect(order.state_changes).to be_empty
     end
   end
 
@@ -846,13 +790,6 @@ RSpec.describe Spree::Order, type: :model do
       it 'does not generate new number' do
         order.generate_order_number
         expect(order.number).to eq '123'
-      end
-    end
-
-    context "passing options" do
-      it 'is deprecated' do
-        expect(Spree::Deprecation).to receive(:warn)
-        order.generate_order_number(length: 2)
       end
     end
   end
@@ -1637,16 +1574,6 @@ RSpec.describe Spree::Order, type: :model do
         amount_remaining = total_available_store_credit - total_applicable_store_credit
         expect(subject.display_store_credit_remaining_after_capture.money.cents).to eq(amount_remaining * 100.0)
       end
-    end
-  end
-
-  context 'update_params_payment_source' do
-    subject { described_class.new }
-
-    it 'is deprecated' do
-      subject.instance_variable_set('@updating_params', {})
-      expect(Spree::Deprecation).to receive(:warn)
-      subject.send(:update_params_payment_source)
     end
   end
 

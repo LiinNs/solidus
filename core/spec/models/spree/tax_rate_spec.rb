@@ -135,91 +135,55 @@ RSpec.describe Spree::TaxRate, type: :model do
     end
   end
 
-  describe "#adjust" do
-    let(:taxable_address) { create(:address) }
-    let(:order) { create(:order_with_line_items, ship_address: order_address) }
-    let(:tax_zone) { create(:zone, countries: [taxable_address.country]) }
-    let(:foreign_address) { create(:address, country_iso_code: "CA") }
-    let!(:foreign_zone) { create(:zone, countries: [foreign_address.country]) }
-    let(:tax_rate) do
-      create(:tax_rate,
-        included_in_price: included_in_price,
-        show_rate_in_label: show_rate_in_label,
-        amount: 0.125,
-        zone: tax_zone)
+  context ".active" do
+    subject(:active_tax_rates) { Spree::TaxRate.active }
+
+    context "when the tax rate has no start or expiry date" do
+      let!(:rate) { create(:tax_rate) }
+
+      it { is_expected.to eq([rate]) }
     end
 
-    let(:item) { order.line_items.first }
+    context "when the start date is in the past" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.ago ) }
 
-    describe 'adjustments' do
-      before do
-        expect(Spree::Deprecation).to receive(:warn)
-        tax_rate.adjust(nil, item)
-      end
+      it { is_expected.to eq([rate]) }
+    end
 
-      let(:adjustment_label) { item.adjustments.tax.first.label }
+    context "when the start date is in the future" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.from_now ) }
 
-      context 'for included rates' do
-        let(:included_in_price) { true }
-        let(:order_address) { taxable_address }
+      it { is_expected.to be_empty }
+    end
 
-        context 'with show rate in label' do
-          let(:show_rate_in_label) { true }
+    context "when the expiry date is in the future" do
+      let!(:rate) { create(:tax_rate, expires_at: 1.day.from_now ) }
 
-          it 'shows the rate in the label' do
-            expect(adjustment_label).to include("12.500%")
-          end
+      it { is_expected.to eq([rate]) }
+    end
 
-          it 'adds a remark that the rate is included in the price' do
-            expect(adjustment_label).to include("Included in Price")
-          end
-        end
+    context "when the expiry date is in the past" do
+      let!(:rate) { create(:tax_rate, expires_at: 1.day.ago ) }
 
-        context 'with show rate in label turned off' do
-          let(:show_rate_in_label) { false }
+      it { is_expected.to be_empty }
+    end
 
-          it 'does not show the rate in the label' do
-            expect(adjustment_label).not_to include("12.500%")
-          end
+    context "when the start date in the past and expiry date is in the future" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.ago, expires_at: 1.day.from_now ) }
 
-          it 'does not have two consecutive spaces' do
-            expect(adjustment_label).not_to include("  ")
-          end
+      it { is_expected.to eq([rate]) }
+    end
 
-          it 'adds a remark that the rate is included in the price' do
-            expect(adjustment_label).to include("Included in Price")
-          end
-        end
-      end
+    context "when the start date and expiry date are in the past" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.ago, expires_at: 1.day.ago ) }
 
-      context 'for additional rates' do
-        let(:included_in_price) { false }
-        let(:order_address) { taxable_address }
+      it { is_expected.to be_empty }
+    end
 
-        context 'with show rate in label' do
-          let(:show_rate_in_label) { true }
+    context "when the start date and expiry date are in the future" do
+      let!(:rate) { create(:tax_rate, starts_at: 1.day.from_now, expires_at: 1.day.from_now ) }
 
-          it 'shows the rate in the label' do
-            expect(adjustment_label).to include("12.500%")
-          end
-
-          it 'does not add a remark that the rate is included in the price' do
-            expect(adjustment_label).not_to include("Included in Price")
-          end
-        end
-
-        context 'with show rate in label turned off' do
-          let(:show_rate_in_label) { false }
-
-          it 'does not show the rate in the label' do
-            expect(adjustment_label).not_to include("12.500%")
-          end
-
-          it 'does not add a remark that the rate is included in the price' do
-            expect(adjustment_label).not_to include("Included in Price")
-          end
-        end
-      end
+      it { is_expected.to be_empty }
     end
   end
 
@@ -290,28 +254,6 @@ RSpec.describe Spree::TaxRate, type: :model do
 
         it { is_expected.to eq(false) }
       end
-    end
-  end
-
-  describe '#tax_category (deprecated)' do
-    let(:tax_rate) { create(:tax_rate, tax_categories: [tax_category]) }
-    let(:tax_category) { create(:tax_category) }
-
-    it "returns the first tax category" do
-      tax_category = Spree::Deprecation.silence { tax_rate.tax_category }
-      expect(tax_category).to eq(tax_category)
-    end
-  end
-
-  describe '#tax_category= (deprecated)' do
-    let(:tax_rate) { Spree::TaxRate.new }
-    let(:tax_category) { create(:tax_category) }
-
-    it "can assign the tax categories" do
-      Spree::Deprecation.silence {
-        tax_rate.tax_category = tax_category
-      }
-      expect(tax_rate.tax_categories).to eq([tax_category])
     end
   end
 end

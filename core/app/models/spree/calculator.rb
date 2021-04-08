@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
+require 'spree/preferences/persistable'
+
 module Spree
   class Calculator < Spree::Base
+    include Spree::Preferences::Persistable
+
     belongs_to :calculable, polymorphic: true, optional: true
 
     # This method calls a compute_<computable> method. must be overriden in concrete calculator.
@@ -10,12 +14,12 @@ module Spree
     def compute(computable)
       # Spree::LineItem -> :compute_line_item
       computable_name = computable.class.name.demodulize.underscore
-      method = "compute_#{computable_name}".to_sym
+      method_name = "compute_#{computable_name}".to_sym
       calculator_class = self.class
-      if respond_to?(method)
-        send(method, computable)
+      if respond_to?(method_name)
+        send(method_name, computable)
       else
-        raise NotImplementedError, "Please implement '#{method}(#{computable_name})' in your calculator: #{calculator_class.name}"
+        raise NotImplementedError, "Please implement '#{method_name}(#{computable_name})' in your calculator: #{calculator_class.name}"
       end
     end
 
@@ -26,13 +30,6 @@ module Spree
     end
 
     ###################################################################
-
-    # Returns all calculators applicable for kind of work
-    def self.calculators
-      Spree::Deprecation.warn("Calling .calculators is deprecated. Please access through Rails.application.config.spree.calculators")
-
-      Spree::Config.environment.calculators
-    end
 
     def to_s
       self.class.name.titleize.gsub("Calculator\/", "")

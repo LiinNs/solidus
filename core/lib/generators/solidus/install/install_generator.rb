@@ -1,17 +1,21 @@
 # frozen_string_literal: true
 
 require 'rails/generators'
-require 'bundler'
-require 'bundler/cli'
 
 module Solidus
   # @private
   class InstallGenerator < Rails::Generators::Base
     CORE_MOUNT_ROUTE = "mount Spree::Core::Engine"
 
+    PAYMENT_METHODS = {
+      'paypal' => 'solidus_paypal_commerce_platform',
+      'none' => nil,
+    }
+
     class_option :migrate, type: :boolean, default: true, banner: 'Run Solidus migrations'
-    class_option :seed, type: :boolean, default: true, banner: 'load seed data (migrations must be run)'
-    class_option :sample, type: :boolean, default: true, banner: 'load sample data (migrations must be run)'
+    class_option :seed, type: :boolean, default: true, banner: 'Load seed data (migrations must be run)'
+    class_option :sample, type: :boolean, default: true, banner: 'Load sample data (migrations must be run)'
+    class_option :active_storage, type: :boolean, default: true, banner: 'Install ActiveStorage as image attachments handler for products and taxons'
     class_option :auto_accept, type: :boolean
     class_option :user_class, type: :string
     class_option :admin_email, type: :string
@@ -19,6 +23,11 @@ module Solidus
     class_option :lib_name, type: :string, default: 'spree'
     class_option :with_authentication, type: :boolean, default: true
     class_option :enforce_available_locales, type: :boolean, default: nil
+    class_option :payment_method,
+                 type: :string,
+                 enum: PAYMENT_METHODS.keys,
+                 default: PAYMENT_METHODS.keys.first,
+                 desc: "Indicates which payment method to install."
 
     def self.source_paths
       paths = superclass.source_paths
@@ -41,6 +50,16 @@ module Solidus
 
     def add_files
       template 'config/initializers/spree.rb.tt', 'config/initializers/spree.rb'
+    end
+
+    def install_file_attachment
+      if options[:active_storage]
+        say "Installing Active Storage", :green
+        rake 'active_storage:install'
+      else
+        say "Installing Paperclip", :green
+        gsub_file 'config/initializers/spree.rb', "ActiveStorageAttachment", "PaperclipAttachment"
+      end
     end
 
     def additional_tweaks
@@ -103,14 +122,39 @@ module Solidus
       end
     end
 
-    def install_default_plugins
-      if options[:with_authentication] && (options[:auto_accept] || yes?("
-  Solidus has a default authentication extension that uses Devise.
-  You can find more info at github.com/solidusio/solidus_auth_devise.
+    def plugin_install_preparation
+      @plugins_to_be_installed = []
+      @plugin_generators_to_run = []
+    end
 
-  Would you like to install it? (y/n)"))
+    def install_auth_plugin
+      if options[:with_authentication] && (options[:auto_accept] || !no?("
+        Solidus has a default authentication extension that uses Devise.
+        You can find more info at https://github.com/solidusio/solidus_auth_devise.
 
-        gem 'solidus_auth_devise'
+        Would you like to install it? (y/n)"))
+
+        @plugins_to_be_installed << 'solidus_auth_devise'
+        @plugin_generators_to_run << 'solidus:auth:install'
+      end
+    end
+
+    def install_payment_method
+      name = options[:payment_method]
+
+      unless options[:auto_accept]
+        available_names = PAYMENT_METHODS.keys
+
+        name = ask("
+  You can select a payment method to be included in the installation process.
+  Please select a payment method name:", limited_to: available_names, default: available_names.first)
+      end
+
+      gem_name = PAYMENT_METHODS.fetch(name)
+
+      if gem_name
+        @plugins_to_be_installed << gem_name
+        @plugin_generators_to_run << "#{gem_name}:install"
       end
     end
 
@@ -130,6 +174,19 @@ module Solidus
     def create_database
       say_status :creating, "database"
       rake 'db:create'
+    end
+
+    def run_bundle_install_if_needed_by_plugins
+      @plugins_to_be_installed.each do |plugin_name|
+        gem plugin_name
+      end
+
+      bundle_cleanly{ run "bundle install" } if @plugins_to_be_installed.any?
+      run "spring stop" if defined?(Spring)
+
+      @plugin_generators_to_run.each do |plugin_generator_name|
+        generate "#{plugin_generator_name} --skip_migrations=true"
+      end
     end
 
     def run_migrations
@@ -196,6 +253,12 @@ module Solidus
         puts " "
         puts "Enjoy!"
       end
+    end
+
+    private
+
+    def bundle_cleanly(&block)
+      Bundler.respond_to?(:with_unbundled_env) ? Bundler.with_unbundled_env(&block) : Bundler.with_clean_env(&block)
     end
   end
 end

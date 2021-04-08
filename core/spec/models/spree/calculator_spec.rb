@@ -12,13 +12,16 @@ RSpec.describe Spree::Calculator, type: :model do
   class SimpleComputable
   end
 
-  describe "#calculators" do
-    subject { Spree::Calculator.calculators }
+  describe "preferences" do
+    subject { SimpleCalculator.new.preferences }
 
-    it 'returns the (deprecated) calculator step' do
-      Spree::Deprecation.silence do
-        expect(subject).to be_a Spree::Core::Environment::Calculators
-      end
+    it { is_expected.to eq({}) }
+
+    context "with preferences stored" do
+      let(:calculator) { SimpleCalculator.create(preferences: { a: "1" }) }
+      subject { calculator.reload.preferences }
+
+      it { is_expected.to eq({ a: "1" }) }
     end
   end
 

@@ -20,7 +20,7 @@ module Spree
     let(:address_params) { { country_id: Country.first.id, state_id: State.first.id } }
 
     let(:current_api_user) do
-      user = Spree.user_class.new(email: "spree@example.com")
+      user = Spree.user_class.new(email: "solidus@example.com")
       user.generate_spree_api_key!
       user
     end
@@ -439,9 +439,9 @@ module Spree
     end
 
     it "assigns email when creating a new order" do
-      post spree.api_orders_path, params: { order: { email: "guest@spreecommerce.com" } }
+      post spree.api_orders_path, params: { order: { email: "guest@solidus.io" } }
       expect(json_response['email']).not_to eq controller.current_api_user
-      expect(json_response['email']).to eq "guest@spreecommerce.com"
+      expect(json_response['email']).to eq "guest@solidus.io"
     end
 
     context "specifying additional parameters for a line items" do
@@ -646,7 +646,7 @@ module Spree
         end
 
         it "can list its line items with images" do
-          order.line_items.first.variant.images.create!(attachment: image("thinking-cat.jpg"))
+          order.line_items.first.variant.images.create!(attachment: image("blank.jpg"))
 
           get spree.api_order_path(order)
 
@@ -817,13 +817,13 @@ module Spree
       context "search" do
         before do
           create(:order)
-          Spree::Order.last.update_attribute(:email, 'spree@spreecommerce.com')
+          Spree::Order.last.update_attribute(:email, 'solidus@solidus.io')
         end
 
         let(:expected_result) { Spree::Order.last }
 
         it "can query the results through a parameter" do
-          get spree.api_orders_path, params: { q: { email_cont: 'spree' } }
+          get spree.api_orders_path, params: { q: { email_cont: 'solidus' } }
           expect(json_response["orders"].count).to eq(1)
           expect(json_response["orders"].first).to have_attributes(attributes)
           expect(json_response["orders"].first["email"]).to eq(expected_result.email)
@@ -917,7 +917,7 @@ module Spree
 
       context "can cancel an order" do
         before do
-          stub_spree_preferences(mails_from: "spree@example.com")
+          stub_spree_preferences(mails_from: "solidus@example.com")
 
           order.completed_at = Time.current
           order.state = 'complete'
@@ -929,53 +929,6 @@ module Spree
           put spree.cancel_api_order_path(order)
           expect(json_response["state"]).to eq("canceled")
           expect(json_response["canceler_id"]).to eq(current_api_user.id)
-        end
-      end
-    end
-
-    describe '#apply_coupon_code' do
-      let(:promo) { create(:promotion_with_item_adjustment, code: 'abc') }
-      let(:promo_code) { promo.codes.first }
-
-      before do
-        allow_any_instance_of(Order).to receive_messages user: current_api_user
-      end
-
-      context 'when successful' do
-        let(:order) { create(:order_with_line_items) }
-
-        it 'applies the coupon' do
-          expect(Spree::Deprecation).to receive(:warn)
-
-          put spree.apply_coupon_code_api_order_path(order), params: { coupon_code: promo_code.value }
-
-          expect(response.status).to eq 200
-          expect(order.reload.promotions).to eq [promo]
-          expect(json_response).to eq({
-            "success" => I18n.t('spree.coupon_code_applied'),
-            "error" => nil,
-            "successful" => true,
-            "status_code" => "coupon_code_applied"
-          })
-        end
-      end
-
-      context 'when unsuccessful' do
-        let(:order) { create(:order) } # no line items to apply the code to
-
-        it 'returns an error' do
-          expect(Spree::Deprecation).to receive(:warn)
-
-          put spree.apply_coupon_code_api_order_path(order), params: { coupon_code: promo_code.value }
-
-          expect(response.status).to eq 422
-          expect(order.reload.promotions).to eq []
-          expect(json_response).to eq({
-            "success" => nil,
-            "error" => I18n.t('spree.coupon_code_unknown_error'),
-            "successful" => false,
-            "status_code" => "coupon_code_unknown_error"
-          })
         end
       end
     end

@@ -63,54 +63,6 @@ RSpec.describe Spree::LineItem, type: :model do
         expect(line_item.tax_category).to eq(line_item.variant.tax_category)
       end
     end
-
-    # Specs for https://github.com/solidusio/solidus/pull/522#issuecomment-170668125
-    context "with `#copy_price` defined" do
-      before(:context) do
-        Spree::LineItem.class_eval do
-          def copy_price
-            self.cost_price = 10
-            self.price = 20
-          end
-        end
-      end
-
-      after(:context) do
-        Spree::LineItem.class_eval do
-          remove_method :copy_price
-        end
-      end
-
-      it 'should display a deprecation warning' do
-        expect(Spree::Deprecation).to receive(:warn)
-        Spree::LineItem.new(variant: variant, order: order)
-      end
-
-      it 'should run the user-defined copy_price method' do
-        expect_any_instance_of(Spree::LineItem).to receive(:copy_price).and_call_original
-        Spree::Deprecation.silence do
-          Spree::LineItem.new(variant: variant, order: order)
-        end
-      end
-    end
-  end
-
-  # TODO: Remove this spec after the method has been removed.
-  describe '#discounted_amount' do
-    it "returns the amount minus any discounts" do
-      line_item.price = 10
-      line_item.quantity = 2
-      line_item.promo_total = -5
-      expect(Spree::Deprecation.silence { line_item.discounted_amount }).to eq(15)
-    end
-  end
-
-  # TODO: Remove this spec after the method has been removed.
-  describe "#discounted_money" do
-    it "should return a money object with the discounted amount" do
-      expect(Spree::Deprecation.silence { line_item.discounted_amount }).to eq(10.00)
-      expect(Spree::Deprecation.silence { line_item.discounted_money.to_s }).to eq "$10.00"
-    end
   end
 
   describe '#total_before_tax' do
@@ -220,32 +172,11 @@ RSpec.describe Spree::LineItem, type: :model do
     context 'when the price has a currency different from the order currency' do
       let(:currency) { "RUB" }
 
-      before do
-        stub_spree_preferences(raise_with_invalid_currency: raise_with_invalid_currency)
-      end
-
-      context 'when raise_with_invalid_currency preference is true' do
-        let(:raise_with_invalid_currency) { true }
-
-        it 'raises an exception' do
-          expect {
-            line_item.money_price = new_price
-          }.to raise_exception(
-            Spree::LineItem::CurrencyMismatch,
-            'Line item price currency must match order currency!'
-          )
-        end
-      end
-
-      context 'when raise_with_invalid_currency preference is false' do
-        let(:raise_with_invalid_currency) { false }
-
-        it 'is not valid' do
-          line_item.money_price = new_price
-          expect(line_item).not_to be_valid
-          expect(line_item.errors[:price])
-            .to include 'Line item price currency must match order currency!'
-        end
+      it 'is not valid' do
+        line_item.money_price = new_price
+        expect(line_item).not_to be_valid
+        expect(line_item.errors[:price])
+          .to include 'Line item price currency must match order currency!'
       end
     end
   end

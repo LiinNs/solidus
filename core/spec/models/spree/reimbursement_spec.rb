@@ -275,4 +275,17 @@ RSpec.describe Spree::Reimbursement, type: :model do
       expect { subject }.to change { reimbursement.refunds.count }.by(1)
     end
   end
+
+  describe '#store_credit_category' do
+    let(:reimbursement) { create(:reimbursement) }
+
+    before do
+      create(:store_credit_category, name: 'foo')
+      create(:store_credit_category, :reimbursement)
+    end
+
+    it 'fetches the the default reimbursement store category' do
+      expect(reimbursement.store_credit_category.name).to eq('Reimbursement')
+    end
+  end
 end

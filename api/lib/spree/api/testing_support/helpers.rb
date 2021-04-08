@@ -27,14 +27,23 @@ module Spree
           allow(Spree.user_class).to receive(:find_by).with(hash_including(:spree_api_key)) { current_api_user }
         end
 
-        # This method can be overriden (with a let block) inside a context
+        # This method can be overridden (with a let block) inside a context
         # For instance, if you wanted to have an admin user instead.
         def current_api_user
-          @current_api_user ||= stub_model(Spree::LegacyUser, email: "spree@example.com", spree_roles: [])
+          @current_api_user ||= stub_model(Spree::LegacyUser, email: "solidus@example.com", spree_roles: [])
         end
 
         def image(filename)
-          File.open(Spree::Api::Engine.root + "spec/fixtures" + filename)
+          File.open(
+            File.join(
+              Spree::Core::Engine.root,
+              "lib",
+              "spree",
+              "testing_support",
+              "fixtures",
+              filename
+            )
+          )
         end
 
         def upload_image(filename)

@@ -51,14 +51,6 @@ module Spree
     class_attribute :reimbursement_performer
     self.reimbursement_performer = ReimbursementPerformer
 
-    # These are called if the call to "reimburse!" succeeds.
-    class_attribute :reimbursement_success_hooks
-    self.reimbursement_success_hooks = []
-
-    # These are called if the call to "reimburse!" fails.
-    class_attribute :reimbursement_failure_hooks
-    self.reimbursement_failure_hooks = []
-
     include ::Spree::Config.state_machines.reimbursement
 
     class << self
@@ -91,10 +83,7 @@ module Spree
       total - paid_amount
     end
 
-    def perform!(created_by: nil)
-      unless created_by
-        Spree::Deprecation.warn("Calling #perform on #{self} without created_by is deprecated")
-      end
+    def perform!(created_by:)
       reimbursement_tax_calculator.call(self)
       reload
       update!(total: calculated_total)
@@ -104,21 +93,9 @@ module Spree
       if unpaid_amount_within_tolerance?
         reimbursed!
         Spree::Event.fire 'reimbursement_reimbursed', reimbursement: self
-        if reimbursement_success_hooks.any?
-          Spree::Deprecation.warn \
-            "reimbursement_success_hooks are deprecated. Please remove them " \
-            "and subscribe to `reimbursement_reimbursed` event instead", caller(1)
-        end
-        reimbursement_success_hooks.each { |hook| hook.call self }
       else
         errored!
         Spree::Event.fire 'reimbursement_errored', reimbursement: self
-        if reimbursement_failure_hooks.any?
-          Spree::Deprecation.warn \
-            "reimbursement_failure_hooks are deprecated. Please remove them " \
-            "and subscribe to `reimbursement_errored` event instead", caller(1)
-        end
-        reimbursement_failure_hooks.each { |hook| hook.call self }
       end
 
       if errored?
@@ -126,10 +103,7 @@ module Spree
       end
     end
 
-    def simulate(created_by: nil)
-      unless created_by
-        Spree::Deprecation.warn("Calling #simulate on #{self} without created_by is deprecated")
-      end
+    def simulate(created_by:)
       reimbursement_simulator_tax_calculator.call(self)
       reload
       update!(total: calculated_total)
@@ -154,13 +128,18 @@ module Spree
     # @api public
     # @param [Spree.user_class] created_by the user that is performing this action
     # @return [void]
-    def return_all(created_by: nil)
-      unless created_by
-        Spree::Deprecation.warn("Calling #return_all on #{self} without created_by is deprecated")
-      end
+    def return_all(created_by:)
       return_items.each(&:accept!)
       save!
       perform!(created_by: created_by)
+    end
+
+    # The returned category is used as the category
+    # for Spree::Reimbursement::Credit.default_creditable_class.
+    #
+    # @return [Spree::StoreCreditCategory]
+    def store_credit_category
+      Spree::StoreCreditCategory.find_by(name: Spree::StoreCreditCategory::REIMBURSEMENT)
     end
 
     private

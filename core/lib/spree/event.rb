@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
 require_relative 'event/adapters/active_support_notifications'
+require_relative 'event/subscriber_registry'
 require_relative 'event/configuration'
 require_relative 'event/subscriber'
 
 module Spree
   module Event
     extend self
+
+    delegate :activate_autoloadable_subscribers, :activate_all_subscribers, :deactivate_all_subscribers, to: :subscriber_registry
 
     # Allows to trigger events that can be subscribed using #subscribe. An
     # optional block can be passed that will be executed immediately. The
@@ -23,30 +26,6 @@ module Spree
     def fire(event_name, opts = {})
       adapter.fire normalize_name(event_name), opts do
         yield opts if block_given?
-      end
-    end
-
-    # Loads all Solidus' core and application's event subscribers files.
-    # The latter are loaded automatically only when the preference
-    # Spree::Config.events.autoload_subscribers is set to a truthy value.
-    #
-    # Files must be placed under the directory `app/subscribers` and their
-    # name must end with `_subscriber.rb`.
-    #
-    # Loading the files has the side effect of adding their module to the
-    # list in Spree::Event.subscribers.
-    def require_subscriber_files
-      pattern = "app/subscribers/**/*_subscriber.rb"
-
-      # Load Solidus subscribers
-      # rubocop:disable Rails/DynamicFindBy
-      solidus_core_dir = Gem::Specification.find_by_name('solidus_core').gem_dir
-      # rubocop:enable Rails/DynamicFindBy
-      Dir.glob(File.join(solidus_core_dir, pattern)) { |c| require_dependency(c.to_s) }
-
-      # Load application subscribers, only when the flag is set to true:
-      if Spree::Config.events.autoload_subscribers
-        Rails.root.glob(pattern) { |c| require_dependency(c.to_s) }
       end
     end
 
@@ -121,19 +100,10 @@ module Spree
       Spree::Config.events.adapter
     end
 
-    # The suffix used for namespacing Solidus events, defaults to
-    # `.spree`
-    #
-    # @see Spree::Event::Configuration#suffix
-    def suffix
-      Spree::Deprecation.warn "This method is deprecated and will be removed. Please use Event::Adapters::ActiveSupportNotifications#suffix"
-      Spree::Config.events.suffix
-    end
-
     # @!attribute [r] subscribers
-    #   @return [Array<Spree::Event::Subscriber>] A list of subscribers used to support class reloading for Spree::Event::Subscriber instances
-    def subscribers
-      Spree::Config.events.subscribers
+    #   @return <Spree::Event::SubscriberRegistry> The registry for supporting class reloading for Spree::Event::Subscriber instances
+    def subscriber_registry
+      Spree::Config.events.subscriber_registry
     end
 
     private

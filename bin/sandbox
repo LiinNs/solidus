@@ -66,9 +66,11 @@ unbundled bin/rails generate solidus:install \
   --user_class=Spree::User \
   --enforce_available_locales=true \
   --with_authentication=false \
+  --payment-method=none
   $@
 
-unbundled bin/rails generate solidus:auth:install
+unbundled bin/rails generate solidus:auth:install \
+  --auto_run_migrations=true
 
 echo "
 🚀 This app is intended for test purposes. If you're interested in running

@@ -5,7 +5,7 @@ require 'bundler'
 task default: :spec
 
 def print_title(gem_name = '')
-  title = ["Solidus", gem_name].join(' ')
+  title = ["Solidus", gem_name].join(' ').strip
   puts "\n#{'-' * title.size}\n#{title}\n#{'-' * title.size}"
 end
 
@@ -101,10 +101,4 @@ namespace :gem do
       sh "gem push '#{gem_path}'"
     end
   end
-end
-
-desc "Creates a sandbox application for simulating the Solidus code in a deployed Rails app"
-task :sandbox do
-  warn "Using `rake sandbox` is deprecated, please use bin/sandbox directly instead."
-  sh("bin/sandbox")
 end

@@ -29,17 +29,6 @@ module Spree
 
     self.whitelisted_ransackable_attributes = %w[name]
 
-    # @note This method is meant to be overridden on a store by store basis.
-    # @return [Array] filters that should be used for a taxon
-    def applicable_filters
-      Spree::Deprecation.warn "Spree::Taxon#applicable_filters is deprecated, if you are using this functionality please move it into your own application."
-
-      fs = []
-      fs << Spree::Core::ProductFilters.price_filter if Spree::Core::ProductFilters.respond_to?(:price_filter)
-      fs << Spree::Core::ProductFilters.brand_filter if Spree::Core::ProductFilters.respond_to?(:brand_filter)
-      fs
-    end
-
     # @return [String] meta_title if set otherwise a string containing the
     #   root name and taxon name
     def seo_title
@@ -134,7 +123,7 @@ module Spree
 
     def touch_ancestors_and_taxonomy
       # Touches all ancestors at once to avoid recursive taxonomy touch, and reduce queries.
-      self.class.where(id: ancestors.pluck(:id)).update_all(updated_at: Time.current)
+      self.class.default_scoped.where(id: ancestors.pluck(:id)).update_all(updated_at: Time.current)
       # Have taxonomy touch happen in #touch_ancestors_and_taxonomy rather than association option in order for imports to override.
       taxonomy.try!(:touch)
     end

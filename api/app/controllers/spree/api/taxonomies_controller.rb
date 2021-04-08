@@ -15,12 +15,6 @@ module Spree
         respond_with(taxonomy)
       end
 
-      # Because JSTree wants parameters in a *slightly* different format
-      def jstree
-        Spree::Deprecation.warn("Please don't use `/api/taxonomies/:taxonomy_id/jstree` endpoint. It is deprecated and will be removed in the next future.", caller)
-        show
-      end
-
       def create
         authorize! :create, Taxonomy
         @taxonomy = Spree::Taxonomy.new(taxonomy_params)
@@ -50,7 +44,7 @@ module Spree
 
       def taxonomies
         @taxonomies = Taxonomy.
-          accessible_by(current_ability, :read).
+          accessible_by(current_ability).
           order('name').
           includes(root: :children).
           ransack(params[:q]).
@@ -58,7 +52,7 @@ module Spree
       end
 
       def taxonomy
-        @taxonomy ||= Spree::Taxonomy.accessible_by(current_ability, :read).
+        @taxonomy ||= Spree::Taxonomy.accessible_by(current_ability, :show).
           includes(root: :children).
           find(params[:id])
       end
